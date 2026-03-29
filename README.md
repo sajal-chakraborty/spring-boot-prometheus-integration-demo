@@ -299,6 +299,209 @@ http://localhost:9090
 
 ---
 
+
+# 🌱 Spring Boot Integration with Prometheus
+
+This section explains how to expose application metrics from a Spring Boot application using **Micrometer** and make them available for **Prometheus scraping**.
+
+---
+
+## 🧠 How It Works
+
+```text
+Spring Boot App → Micrometer → MeterRegistry → /actuator/prometheus → Prometheus
+```
+
+* **Micrometer** → Metrics abstraction layer
+* **MeterRegistry** → Stores metrics inside the app
+* **Actuator** → Exposes metrics endpoint
+* **Prometheus** → Scrapes metrics
+
+---
+
+## 📦 Step 1: Add Dependencies
+
+### Maven
+
+```xml
+<dependencies>
+    <!-- Actuator for exposing endpoints -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- Prometheus registry -->
+    <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+</dependencies>
+```
+
+### Gradle
+
+```groovy
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+}
+```
+
+---
+
+## ⚙️ Step 2: Configure Actuator
+
+### `application.yml`
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, health, info
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: my-spring-app
+```
+
+---
+
+## 🌐 Step 3: Verify Metrics Endpoint
+
+Start your application and open:
+
+```
+http://localhost:8080/actuator/prometheus
+```
+
+Expected output:
+
+```
+# HELP jvm_memory_used_bytes The amount of used memory
+jvm_memory_used_bytes{area="heap"} 1.23456E7
+```
+
+---
+
+## 📊 Step 4: Create Custom Metrics
+
+### ✅ Counter Example
+
+```java
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class OrderController {
+
+    private final Counter orderCounter;
+
+    public OrderController(MeterRegistry registry) {
+        this.orderCounter = Counter.builder("orders_total")
+                .description("Total orders processed")
+                .tag("region", "india")
+                .tag("service", "payment")
+                .register(registry);
+    }
+
+    @GetMapping("/test")
+    public String test() {
+        orderCounter.increment();
+        return "Order processed";
+    }
+}
+```
+
+---
+
+## 📈 Step 5: Built-in Metrics (Auto Available)
+
+Spring Boot automatically provides:
+
+* `http_server_requests_seconds` → API latency
+* `jvm_memory_used_bytes` → JVM memory
+* `system_cpu_usage` → CPU usage
+* `jvm_gc_pause_seconds` → GC pauses
+
+---
+
+## 🧪 Step 6: Validate in Prometheus
+
+After configuring Prometheus:
+
+* Open: `http://localhost:9090`
+* Go to **Graph**
+* Try query:
+
+```sql
+rate(http_server_requests_seconds_count[1m])
+```
+
+---
+
+## ⚠️ Best Practices
+
+### ✅ Reuse Metrics (Important)
+
+```java
+private final Counter counter;
+```
+
+❌ Avoid:
+
+```java
+Counter.builder(...).register(...); // inside method
+```
+
+---
+
+### ⚠️ Avoid High Cardinality
+
+❌ Bad:
+
+```java
+.tag("userId", userId)
+```
+
+👉 Causes memory and performance issues
+
+---
+
+### 🔐 Secure Actuator
+
+```yaml
+management:
+  server:
+    port: 8081
+```
+
+---
+
+## 🧠 Key Concepts
+
+* **Micrometer** → abstraction layer
+* **MeterRegistry** → metric storage inside app
+* **Prometheus** → pulls metrics
+* **Tags** → dimensions for filtering
+
+---
+
+## 🎯 Summary
+
+* Add dependencies
+* Enable `/actuator/prometheus`
+* Create custom metrics using `MeterRegistry`
+* Configure Prometheus to scrape metrics
+
+---
+
+
 ## 📚 References
 
 * https://prometheus.io/docs/

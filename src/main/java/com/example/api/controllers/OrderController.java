@@ -20,8 +20,9 @@ public class OrderController {
                 .register(registry);
     }
 
-    @GetMapping("/test")
-    public String sayHello() {
+    @GetMapping("/order")
+    public String createOrder() {
+        //For Easy testing method is get. It should be a POST only.
 
         orderCounter.increment();  // ✅ reuse counter
 
