@@ -1,41 +1,41 @@
-# spring-boot-prometheus-integration-demo
-This is a demo of important integration points of prometheus, Grafana, Spring boot along with Acturator and Micrometer
+# 🚀 End-to-End Observability: Spring Boot + Prometheus + Grafana
 
+This guide walks through a **complete, production-style setup** of monitoring for a Spring Boot application using:
 
-# 🚀 Prometheus Setup with Spring Boot (Local Development)
-
-This guide explains how to install, configure, and integrate **Prometheus** with a **Spring Boot application** for metrics monitoring.
-
----
-
-## 📌 What is Prometheus?
-
-Prometheus is an open-source monitoring and alerting system that collects metrics from applications and stores them as time-series data.
+* **Spring Boot + Micrometer** → Metrics generation
+* **Prometheus** → Metrics collection & storage
+* **Grafana** → Visualization
 
 ---
 
-## 🏗️ Architecture Overview
+# 🧠 Architecture Overview
 
-```
-Spring Boot App  --->  Prometheus Server  --->  Grafana (optional)
-        |                      |
-   /actuator/prometheus   Scrapes metrics
+```text
+Spring Boot (Micrometer)
+        ↓
+/actuator/prometheus
+        ↓
+Prometheus (Pull Model)
+        ↓
+Grafana (Dashboards)
 ```
 
 ---
 
-## ⚙️ Prerequisites
+# ⚙️ Prerequisites
 
 * macOS
+* Java 17+
+* Spring Boot project
 * Homebrew installed
-* Java + Spring Boot application
-* (Optional) Docker
 
 ---
 
-# 🍏 Install Prometheus on macOS
+# 🟢 PHASE 1: Prometheus Setup
 
-## Step 1: Install via Homebrew
+---
+
+## Step 1: Install Prometheus
 
 ```bash
 brew install prometheus
@@ -43,48 +43,25 @@ brew install prometheus
 
 ---
 
-## Step 2: Verify Installation
+## Step 2: Configure Prometheus
 
-```bash
-prometheus --version
-```
-
----
-
-## Step 3: Locate Config File
-
-```bash
-brew info prometheus
-```
-
-Typical locations:
-
-* Apple Silicon → `/opt/homebrew/etc/prometheus.yml`
-* Intel → `/usr/local/etc/prometheus.yml`
-
----
-
-# 🛠️ Configure Prometheus
-
-Edit the config file:
+Edit config:
 
 ```bash
 nano /opt/homebrew/etc/prometheus.yml
 ```
 
-### Sample Configuration
+### Configuration
 
 ```yaml
 global:
   scrape_interval: 15s
 
 scrape_configs:
-  # Prometheus self-monitoring
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
 
-  # Spring Boot App
   - job_name: "spring-boot"
     metrics_path: "/actuator/prometheus"
     static_configs:
@@ -93,7 +70,7 @@ scrape_configs:
 
 ---
 
-# ▶️ Start Prometheus
+## Step 3: Start Prometheus
 
 ```bash
 prometheus --config.file=/opt/homebrew/etc/prometheus.yml
@@ -101,243 +78,24 @@ prometheus --config.file=/opt/homebrew/etc/prometheus.yml
 
 ---
 
-# 🌐 Access Prometheus UI
-
-Open in browser:
-
-```
-http://localhost:9090
-```
-
-Check targets:
+## Step 4: Verify
 
 ```
 http://localhost:9090/targets
 ```
 
----
+👉 Ensure:
 
-# 🌱 Spring Boot Integration
-
-## 📦 Dependencies (Maven)
-
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-actuator</artifactId>
-</dependency>
-
-<dependency>
-    <groupId>io.micrometer</groupId>
-    <artifactId>micrometer-registry-prometheus</artifactId>
-</dependency>
-```
+* `prometheus` → UP
+* `spring-boot` → UP
 
 ---
 
-## ⚙️ application.yml
-
-```yaml
-management:
-  endpoints:
-    web:
-      exposure:
-        include: prometheus, health, info
-  endpoint:
-    prometheus:
-      enabled: true
-```
+# 🌱 PHASE 2: Spring Boot Integration
 
 ---
 
-## 🔍 Verify Metrics Endpoint
-
-```
-http://localhost:8080/actuator/prometheus
-```
-
----
-
-# 📊 Custom Metrics Example
-
-## Counter Example
-
-```java
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import org.springframework.stereotype.Service;
-
-@Service
-public class OrderService {
-
-    private final Counter orderCounter;
-
-    public OrderService(MeterRegistry registry) {
-        this.orderCounter = Counter.builder("orders_created_total")
-                .description("Total number of orders created")
-                .register(registry);
-    }
-
-    public void createOrder() {
-        orderCounter.increment();
-    }
-}
-```
-
----
-
-## ⏱️ Timer Example
-
-```java
-Timer timer = Timer.builder("order_processing_time")
-        .description("Time taken to process orders")
-        .register(registry);
-
-timer.record(() -> {
-    // business logic
-});
-```
-
----
-
-# 🐳 Run Prometheus using Docker (Alternative)
-
-## Step 1: Create Config File
-
-```bash
-mkdir prometheus-demo
-cd prometheus-demo
-nano prometheus.yml
-```
-
-Paste config:
-
-```yaml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: "spring-boot"
-    metrics_path: "/actuator/prometheus"
-    static_configs:
-      - targets: ["host.docker.internal:8080"]
-```
-
----
-
-## Step 2: Run Container
-
-```bash
-docker run -d \
-  -p 9090:9090 \
-  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
-  prom/prometheus
-```
-
----
-
-# 📈 PromQL Examples
-
-```sql
-# Requests per second
-rate(http_server_requests_seconds_count[1m])
-
-# Average latency
-rate(http_server_requests_seconds_sum[1m]) 
-/
-rate(http_server_requests_seconds_count[1m])
-```
-
----
-
-# 📊 (Optional) Setup Grafana
-
-```bash
-brew install grafana
-brew services start grafana
-```
-
-Open:
-
-```
-http://localhost:3000
-```
-
-Add Prometheus as data source:
-
-```
-http://localhost:9090
-```
-
----
-
-# ⚠️ Common Issues
-
-| Issue                       | Cause                | Fix                   |
-| --------------------------- | -------------------- | --------------------- |
-| Prometheus not starting     | YAML syntax error    | Validate indentation  |
-| Target DOWN                 | App not running      | Start Spring Boot app |
-| 404 on /actuator/prometheus | Actuator not enabled | Check config          |
-| Duplicate scrape_configs    | Config mistake       | Merge into one block  |
-
----
-
-# 🧠 Key Concepts
-
-* Prometheus uses **pull model**
-* Metrics exposed via `/actuator/prometheus`
-* Uses **Micrometer** in Spring Boot
-* Requires separate server/container
-
----
-
-# 🎯 Next Steps
-
-* Add alerts using Alertmanager
-* Create dashboards in Grafana
-* Integrate with Datadog / Dynatrace
-
----
-
-
-# 🌱 Spring Boot Integration with Prometheus
-
-This section explains how to expose application metrics from a Spring Boot application using **Micrometer** and make them available for **Prometheus scraping**.
-
----
-
-## 🧠 How It Works
-
-```text
-Spring Boot App → Micrometer → MeterRegistry → /actuator/prometheus → Prometheus
-```
-
-* **Micrometer** → Metrics abstraction layer
-* **MeterRegistry** → Stores metrics inside the app
-* **Actuator** → Exposes metrics endpoint
-* **Prometheus** → Scrapes metrics
-
----
-
-## 📦 Step 1: Add Dependencies
-
-### Maven
-
-```xml
-<dependencies>
-    <!-- Actuator for exposing endpoints -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-actuator</artifactId>
-    </dependency>
-
-    <!-- Prometheus registry -->
-    <dependency>
-        <groupId>io.micrometer</groupId>
-        <artifactId>micrometer-registry-prometheus</artifactId>
-    </dependency>
-</dependencies>
-```
+## Step 1: Add Dependencies
 
 ### Gradle
 
@@ -350,9 +108,7 @@ dependencies {
 
 ---
 
-## ⚙️ Step 2: Configure Actuator
-
-### `application.yml`
+## Step 2: Configure Actuator
 
 ```yaml
 management:
@@ -363,40 +119,21 @@ management:
   endpoint:
     prometheus:
       enabled: true
-  metrics:
-    tags:
-      application: my-spring-app
 ```
 
 ---
 
-## 🌐 Step 3: Verify Metrics Endpoint
-
-Start your application and open:
+## Step 3: Verify Metrics Endpoint
 
 ```
 http://localhost:8080/actuator/prometheus
 ```
 
-Expected output:
-
-```
-# HELP jvm_memory_used_bytes The amount of used memory
-jvm_memory_used_bytes{area="heap"} 1.23456E7
-```
-
 ---
 
-## 📊 Step 4: Create Custom Metrics
-
-### ✅ Counter Example
+## Step 4: Add Custom Metric (Best Practice)
 
 ```java
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 @RestController
 public class OrderController {
 
@@ -420,24 +157,25 @@ public class OrderController {
 
 ---
 
-## 📈 Step 5: Built-in Metrics (Auto Available)
+## Step 5: Generate Traffic
 
-Spring Boot automatically provides:
+Call API multiple times:
 
-* `http_server_requests_seconds` → API latency
-* `jvm_memory_used_bytes` → JVM memory
-* `system_cpu_usage` → CPU usage
-* `jvm_gc_pause_seconds` → GC pauses
+```
+http://localhost:8080/test
+```
 
 ---
 
-## 🧪 Step 6: Validate in Prometheus
+## Step 6: Validate in Prometheus
 
-After configuring Prometheus:
+Go to:
 
-* Open: `http://localhost:9090`
-* Go to **Graph**
-* Try query:
+```
+http://localhost:9090
+```
+
+Run query:
 
 ```sql
 rate(http_server_requests_seconds_count[1m])
@@ -445,71 +183,134 @@ rate(http_server_requests_seconds_count[1m])
 
 ---
 
-## ⚠️ Best Practices
+# 📊 PHASE 3: Grafana Setup
 
-### ✅ Reuse Metrics (Important)
+---
 
-```java
-private final Counter counter;
-```
+## Step 1: Install Grafana
 
-❌ Avoid:
-
-```java
-Counter.builder(...).register(...); // inside method
+```bash
+brew install grafana
 ```
 
 ---
 
-### ⚠️ Avoid High Cardinality
+## Step 2: Start Grafana
 
-❌ Bad:
-
-```java
-.tag("userId", userId)
-```
-
-👉 Causes memory and performance issues
-
----
-
-### 🔐 Secure Actuator
-
-```yaml
-management:
-  server:
-    port: 8081
+```bash
+brew services start grafana
 ```
 
 ---
 
-## 🧠 Key Concepts
+## Step 3: Access UI
+
+```
+http://localhost:3000
+```
+
+Default:
+
+```
+admin / admin
+```
+
+---
+
+## Step 4: Add Prometheus Data Source
+
+* Go to **Settings → Data Sources**
+* Select **Prometheus**
+
+```
+URL: http://localhost:9090
+```
+
+Click **Save & Test**
+
+---
+
+## Step 5: Create Dashboard
+
+---
+
+### Panel 1: Requests per second
+
+```sql
+rate(http_server_requests_seconds_count[1m])
+```
+
+---
+
+### Panel 2: API Latency
+
+```sql
+rate(http_server_requests_seconds_sum[1m]) 
+/
+rate(http_server_requests_seconds_count[1m])
+```
+
+---
+
+### Panel 3: Custom Metric
+
+```sql
+rate(orders_total[1m])
+```
+
+---
+
+### Panel 4: JVM Memory
+
+```sql
+jvm_memory_used_bytes
+```
+
+---
+
+# ⚠️ Common Issues & Fixes
+
+| Issue              | Cause           | Fix               |
+| ------------------ | --------------- | ----------------- |
+| Target DOWN        | App not running | Start Spring Boot |
+| No data in Grafana | No traffic      | Hit APIs          |
+| YAML error         | Syntax issue    | Fix indentation   |
+| 404 actuator       | Not exposed     | Check config      |
+
+---
+
+# 🧠 Key Concepts
 
 * **Micrometer** → abstraction layer
-* **MeterRegistry** → metric storage inside app
-* **Prometheus** → pulls metrics
-* **Tags** → dimensions for filtering
+* **MeterRegistry** → in-app metric store
+* **Prometheus** → pull-based monitoring
+* **Grafana** → visualization only
 
 ---
 
-## 🎯 Summary
+# 🎯 Final Flow
 
-* Add dependencies
-* Enable `/actuator/prometheus`
-* Create custom metrics using `MeterRegistry`
-* Configure Prometheus to scrape metrics
-
----
-
-
-## 📚 References
-
-* https://prometheus.io/docs/
-* https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html
+```text
+API Call → Counter Increment
+        ↓
+MeterRegistry updated
+        ↓
+Prometheus scrapes
+        ↓
+Grafana visualizes
+```
 
 ---
 
-## ✅ Author
+# 🚀 Next Steps
+
+* Add Alertmanager
+* Create SLA dashboards
+* Add tracing (OpenTelemetry)
+* Integrate with Datadog / Dynatrace
+
+---
+
+## 👨‍💻 Author
 
 Sajal Chakraborty
-
